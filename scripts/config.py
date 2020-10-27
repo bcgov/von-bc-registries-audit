@@ -137,3 +137,25 @@ def get_sql_record_count(db_name, sql):
         if cur is not None:
             cur.close()
         cur = None
+
+
+# corp num with prefix
+def corp_num_with_prefix(corp_typ_cd, corp_num):
+    p_corp_num = corp_num
+    if corp_typ_cd == 'BC':
+        p_corp_num = 'BC' + corp_num
+    elif corp_typ_cd == 'ULC':
+        p_corp_num = 'BC' + corp_num
+    elif corp_typ_cd == 'CC':
+        p_corp_num = 'BC' + corp_num
+    elif corp_typ_cd == 'BEN':
+        p_corp_num = 'BC' + corp_num
+    return p_corp_num
+
+
+# corp num without prefix
+def bare_corp_num(corp_num):
+    if corp_num.startswith("BC"):
+        return corp_num[2:]
+    else:
+        return corp_num

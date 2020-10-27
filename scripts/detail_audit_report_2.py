@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import os 
 import psycopg2
 import datetime
 import time
@@ -7,16 +8,15 @@ import decimal
 import requests
 import csv
 
-from bcreg.config import config
-from bcreg.eventprocessor import EventProcessor, CORP_TYPES_IN_SCOPE
-from bcreg.bcregistries import BCRegistries
+from config import get_connection, get_db_sql, get_sql_record_count, CORP_TYPES_IN_SCOPE, corp_num_with_prefix, bare_corp_num
 
 
 QUERY_LIMIT = '200000'
 REPORT_COUNT = 10000
 ERROR_THRESHOLD_COUNT = 5
 
-ORGBOOK_API_URL = "https://orgbook.gov.bc.ca/api/v3"
+# value for PROD is "https://orgbook.gov.bc.ca/api/v3"
+ORGBOOK_API_URL = os.environ.get('ORGBOOK_API_URL', 'http://localhost:8081/api/v3')
 TOPIC_QUERY = "/topic/registration.registries.ca/"
 TOPIC_NAME_SEARCH = "/search/topic?inactive=false&latest=true&revoked=false&name="
 TOPIC_ID_SEARCH = "/search/topic?inactive=false&latest=true&revoked=false&topic_id="
@@ -30,18 +30,6 @@ Reads from the orgbook database and compares:
 - corps in event processor audit logs that are not in BC Reg database (maybe have been removed?)
 - corps in BC Reg database that are not in the event processor audit logs
 """
-
-def corp_num_with_prefix(corp_typ_cd, corp_num):
-    p_corp_num = corp_num
-    if corp_typ_cd == 'BC':
-        p_corp_num = 'BC' + corp_num
-    elif corp_typ_cd == 'ULC':
-        p_corp_num = 'BC' + corp_num
-    elif corp_typ_cd == 'CC':
-        p_corp_num = 'BC' + corp_num
-    elif corp_typ_cd == 'BEN':
-        p_corp_num = 'BC' + corp_num
-    return p_corp_num
 
 def bare_corp_num(corp_num):
     if corp_num.startswith("BC"):

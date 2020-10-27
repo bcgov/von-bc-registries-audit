@@ -1,9 +1,10 @@
 #!/usr/bin/python
+import os 
 import psycopg2
 import datetime
 import json
 import decimal
-from config import get_connection, get_db_sql, get_sql_record_count, CORP_TYPES_IN_SCOPE
+from config import get_connection, get_db_sql, get_sql_record_count, CORP_TYPES_IN_SCOPE, corp_num_with_prefix, bare_corp_num
 from rocketchat_hooks import log_error, log_warning, log_info
 
 
