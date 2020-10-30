@@ -5,7 +5,6 @@ import datetime
 import time
 import json
 import decimal
-import requests
 import csv
 
 from config import get_connection, get_db_sql, get_sql_record_count, CORP_TYPES_IN_SCOPE, corp_num_with_prefix, bare_corp_num

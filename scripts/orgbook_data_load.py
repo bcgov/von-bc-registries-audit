@@ -56,11 +56,6 @@ def get_bc_reg_corps():
                 }
                 bc_reg_corps[full_corp_num] = bc_reg_corp
                 corp_writer.writerow(bc_reg_corp)
-                processed_count = processed_count + 1
-                if processed_count >= 10000:
-                    processing_time = time.perf_counter() - start_time
-                    print("Processing:", bc_reg_count, processing_time)
-                    processed_count = 0
 
     return bc_reg_corps
 
@@ -71,8 +66,7 @@ def get_orgbook_all_corps():
     """
     conn = None
     try:
-        params = config(section='org_book')
-        conn = psycopg2.connect(**params)
+        conn = get_connection('org_book')
     except (Exception) as error:
         print(error)
         raise

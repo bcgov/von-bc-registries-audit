@@ -3,3 +3,4 @@ aiohttp
 pytz
 cffi>=1.13
 backoff
+requests
