@@ -36,8 +36,9 @@ def get_bc_reg_corps():
     """
 
     bc_reg_corps = {}
+    bc_reg_corp_types = {}
     bc_reg_count = 0
-    with open('bc_reg_corps.csv', mode='w') as corp_file:
+    with open('export/bc_reg_corps.csv', mode='w') as corp_file:
         fieldnames = ["corp_num", "corp_type"]
         corp_writer = csv.DictWriter(corp_file, fieldnames=fieldnames, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         corp_writer.writeheader()
@@ -55,9 +56,23 @@ def get_bc_reg_corps():
                     "corp_type": bc_reg_rec['corp_typ_cd']
                 }
                 bc_reg_corps[full_corp_num] = bc_reg_corp
+                bc_reg_corp_types[bc_reg_corp["corp_num"]] = bc_reg_corp["corp_type"]
                 corp_writer.writerow(bc_reg_corp)
 
-    return bc_reg_corps
+    return bc_reg_corp_types
+
+
+def get_bc_reg_corps_csv():
+    """
+    Check if all the BC Reg corps are in orgbook (with the same corp type)
+    """
+    bc_reg_corp_types = {}
+    with open('export/bc_reg_corps.csv', mode='r') as corp_file:
+        corp_reader = csv.DictReader(corp_file)
+        for row in corp_reader:
+            bc_reg_corp_types[row["corp_num"]] = row["corp_type"]
+
+    return bc_reg_corp_types
 
 
 def get_orgbook_all_corps():
@@ -73,19 +88,36 @@ def get_orgbook_all_corps():
 
     # get all the corps from orgbook
     print("Get corp stats from OrgBook DB", datetime.datetime.now())
-    sql4 = """select topic.source_id, attribute.value from topic 
-              left join credential on credential.topic_id = topic.id and credential.latest = true and credential_type_id = 1
-              left join attribute on attribute.credential_id = credential.id and attribute.type = 'entity_type'"""
     orgbook_corp_types = {}
-    try:
-        cur = conn.cursor()
-        cur.execute(sql4)
-        for row in cur:
-            orgbook_corp_types[row[0]] = row[1]
-        cur.close()
-    except (Exception) as error:
-        print(error)
-        raise
+    with open('export/orgbook_search_corps.csv', mode='w') as corp_file:
+        fieldnames = ["corp_num", "corp_type"]
+        corp_writer = csv.DictWriter(corp_file, fieldnames=fieldnames, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        corp_writer.writeheader()
+
+        sql4 = """select topic.source_id, attribute.value from topic 
+                  left join credential on credential.topic_id = topic.id and credential.latest = true and credential_type_id = 1
+                  left join attribute on attribute.credential_id = credential.id and attribute.type = 'entity_type'"""
+        try:
+            cur = conn.cursor()
+            cur.execute(sql4)
+            for row in cur:
+                orgbook_corp_types[row[0]] = row[1]
+                write_corp = {"corp_num":row[0], "corp_type":row[1]}
+                corp_writer.writerow(write_corp)
+            cur.close()
+        except (Exception) as error:
+            print(error)
+            raise
+
+    return orgbook_corp_types
+
+
+def get_orgbook_all_corps_csv():
+    orgbook_corp_types = {}
+    with open('export/orgbook_search_corps.csv', mode='r') as corp_file:
+        corp_reader = csv.DictReader(corp_file)
+        for row in corp_reader:
+            orgbook_corp_types[row["corp_num"]] = row["corp_type"]
 
     return orgbook_corp_types
 
@@ -96,20 +128,35 @@ def get_event_proc_future_corps():
     - corps queued for future processing (we don't check if these are in orgbook or not)
     """
     corps = []
+    future_corps = {}
     sql1 = """SELECT corp_num FROM event_by_corp_filing WHERE process_date is null;"""
     corp_recs = get_db_sql("event_processor", sql1)
     if 0 < len(corp_recs):
         for corp_rec in corp_recs:
             corps.append({'corp_num': corp_rec['corp_num']})
 
-    with open('event_future_corps.csv', mode='w') as corp_file:
+    with open('export/event_future_corps.csv', mode='w') as corp_file:
         fieldnames = ["corp_num"]
         corp_writer = csv.DictWriter(corp_file, fieldnames=fieldnames, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         corp_writer.writeheader()
         for corp in corps:
             corp_writer.writerow(corp)
+            future_corps[corp["corp_num"]] = corp["corp_num"]
 
-    return corps
+    return future_corps
+
+
+def get_event_proc_future_corps_csv():
+    """
+    Corps that are still in the event processor queue waiting to be processed (won't be in orgbook yet)
+    """
+    future_corps = {}
+    with open('export/event_future_corps.csv', mode='r') as corp_file:
+        corp_reader = csv.DictReader(corp_file)
+        for row in corp_reader:
+            future_corps[row["corp_num"]] = row["corp_num"]
+
+    return future_corps
 
 
 def get_event_proc_audit_corps():
@@ -124,7 +171,7 @@ def get_event_proc_audit_corps():
         for corp_rec in corp_audit_recs:
             audit_corps.append({'corp_num': corp_rec['corp_num'], 'corp_type': corp_rec['corp_type']})
 
-    with open('event_audit_corps.csv', mode='w') as corp_file:
+    with open('export/event_audit_corps.csv', mode='w') as corp_file:
         fieldnames = ["corp_num", "corp_type"]
         corp_writer = csv.DictWriter(corp_file, fieldnames=fieldnames, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         corp_writer.writeheader()
