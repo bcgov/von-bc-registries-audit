@@ -10,6 +10,7 @@ import csv
 import asyncio
 
 from config import get_connection, get_db_sql, get_sql_record_count, CORP_TYPES_IN_SCOPE, corp_num_with_prefix, bare_corp_num
+from orgbook_data_load import get_orgbook_all_corps, get_orgbook_all_corps_csv, get_event_proc_future_corps, get_event_proc_future_corps_csv, get_bc_reg_corps, get_bc_reg_corps_csv, get_agent_wallet_ids
 
 
 QUERY_LIMIT = '200000'
@@ -22,8 +23,8 @@ TOPIC_QUERY = "/topic/registration.registries.ca/"
 TOPIC_NAME_SEARCH = "/search/topic?inactive=false&latest=true&revoked=false&name="
 TOPIC_ID_SEARCH = "/search/topic?inactive=false&latest=true&revoked=false&topic_id="
 
-# value for PROD is "https://agent-admin.orgbook.gov.bc.ca/?count=100&start="
-AGENT_API_URL = os.environ.get("AGENT_API_URL", "http://localhost:8021/?count=100&start=")
+# value for PROD is "https://agent-admin.orgbook.gov.bc.ca/credential/"
+AGENT_API_URL = os.environ.get("AGENT_API_URL", "http://localhost:8021/credential/")
 AGENT_API_KEY = os.environ.get("AGENT_API_KEY")
 
 
@@ -34,10 +35,14 @@ Reads from the orgbook database:
 """
 
 async def process_credential_queue():
+    # preload agent wallet id's
+    print("Get exported wallet id's from agent", datetime.datetime.now())
+    agent_wallet_ids = get_agent_wallet_ids()
+    print("# wallet id's:", len(agent_wallet_ids))
+
     conn = None
     try:
-        params = config('org_book')
-        conn = psycopg2.connect(**params)
+        conn = get_connection('org_book')
     except (Exception) as error:
         print(error)
         raise
@@ -65,22 +70,32 @@ async def process_credential_queue():
     except (Exception) as error:
         print(error)
         raise
+    print("# orgbook creds:", len(corp_creds), datetime.datetime.now())
 
     i = 0
+    missing = 0
     print("Checking for valid credentials ...", datetime.datetime.now())
-    while True:
-        api_key_hdr = {"x-api-key": AGENT_API_KEY}
-        url = AGENT_API_URL + str(i+1)
-        try:
-            if 0 == i % 100000:
-                print(i)
-            response = requests.get(url, headers=api_key_hdr)
-            response.raise_for_status()
-            credentials = response.json()["results"]
-            # TODO check credentials
-            i = i + 100
-        except Exception as e:
-            print("Exception for:", i)
+    while i < len(corp_creds):
+        # if cached we are good, otherwise check agent via api
+        if not corp_creds[i]['credential_id'] in agent_wallet_ids.keys():
+            api_key_hdr = {"x-api-key": AGENT_API_KEY}
+            url = AGENT_API_URL + corp_creds[i]['credential_id']
+            print(i, url)
+            try:
+                response = requests.get(url, headers=api_key_hdr)
+                response.raise_for_status()
+                if response.status_code == 404:
+                    print("Not found for:", i, corp_creds[i]['credential_id'])
+                    missing = missing + 1
+                wallet_credential = response.json()
+            except Exception as e:
+                print("Exception for:", i, corp_creds[i]['credential_id'])
+                missing = missing + 1
+        i = i + 1
+        if 0 == i % 100000:
+            print(i)
+
+    print("Total # missing in wallet:", missing, datetime.datetime.now())
 
 
 try:

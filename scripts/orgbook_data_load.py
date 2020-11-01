@@ -181,3 +181,14 @@ def get_event_proc_audit_corps():
     return audit_corps
 
 
+def get_agent_wallet_ids():
+    """
+    Reads from the exported list of wallet id's
+    """
+    agent_wallet_ids = {}
+    with open('export/export-wallet-cred-ids.txt', mode='r') as corp_file:
+        corp_reader = csv.DictReader(corp_file)
+        for row in corp_reader:
+            agent_wallet_ids[row["wallet_id"]] = row["wallet_id"]
+
+    return agent_wallet_ids
