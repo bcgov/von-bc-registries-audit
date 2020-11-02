@@ -10,7 +10,12 @@ import csv
 import asyncio
 
 from config import get_connection, get_db_sql, get_sql_record_count, CORP_TYPES_IN_SCOPE, corp_num_with_prefix, bare_corp_num
-from orgbook_data_load import get_orgbook_all_corps, get_orgbook_all_corps_csv, get_event_proc_future_corps, get_event_proc_future_corps_csv, get_bc_reg_corps, get_bc_reg_corps_csv, get_agent_wallet_ids
+from orgbook_data_load import (
+    get_orgbook_all_corps, get_orgbook_all_corps_csv,
+    get_event_proc_future_corps, get_event_proc_future_corps_csv,
+    get_bc_reg_corps, get_bc_reg_corps_csv,
+    get_agent_wallet_ids, append_agent_wallet_ids
+)
 
 
 QUERY_LIMIT = '200000'
@@ -51,12 +56,12 @@ async def process_credential_queue():
     print("Get credential stats from OrgBook DB", datetime.datetime.now())
     sql4 = """select 
                   credential.credential_id, credential.id, credential.topic_id, credential.update_timestamp,
-                  topic.source_id, credential.credential_type_id, credential_type.description
+                  topic.source_id, credential.credential_type_id, credential_type.description,
+                  credential.revoked, credential.inactive, credential.latest
                 from credential, topic, credential_type
                 where topic.id = credential.topic_id
                 and credential_type.id = credential.credential_type_id
-                order by id desc;"""
-                #limit 50000;"""
+                order by id;"""
     corp_creds = []
     try:
         cur = conn.cursor()
@@ -64,7 +69,8 @@ async def process_credential_queue():
         for row in cur:
             corp_creds.append({
                 'credential_id': row[0], 'id': row[1], 'topic_id': row[2], 'timestamp': row[3],
-                'source_id': row[4], 'credential_type_id': row[5], 'credential_type': row[6]
+                'source_id': row[4], 'credential_type_id': row[5], 'credential_type': row[6],
+                'revoked': row[7], 'inactive': row[8], 'latest': row[9]
             })
         cur.close()
     except (Exception) as error:
@@ -73,29 +79,49 @@ async def process_credential_queue():
     print("# orgbook creds:", len(corp_creds), datetime.datetime.now())
 
     i = 0
-    missing = 0
+    agent_checks = 0
+    cache_checks = 0
+    missing = []
+    not_in_cache = []
     print("Checking for valid credentials ...", datetime.datetime.now())
     while i < len(corp_creds):
         # if cached we are good, otherwise check agent via api
         if not corp_creds[i]['credential_id'] in agent_wallet_ids.keys():
+            agent_checks = agent_checks + 1
             api_key_hdr = {"x-api-key": AGENT_API_KEY}
             url = AGENT_API_URL + corp_creds[i]['credential_id']
-            print(i, url)
+            #print(i, url)
             try:
                 response = requests.get(url, headers=api_key_hdr)
                 response.raise_for_status()
                 if response.status_code == 404:
-                    print("Not found for:", i, corp_creds[i]['credential_id'])
-                    missing = missing + 1
-                wallet_credential = response.json()
+                    print(
+                        "Not found:", i, corp_creds[i]['credential_id'],
+                        corp_creds[i]['source_id'], corp_creds[i]['credential_type'],
+                        corp_creds[i]['revoked'], corp_creds[i]['inactive'], corp_creds[i]['latest'],
+                        )
+                    missing.append(corp_creds[i])
+                else:
+                    wallet_credential = response.json()
+                    # exists in agent but is not in cache
+                    not_in_cache.append(corp_creds[i])
             except Exception as e:
-                print("Exception for:", i, corp_creds[i]['credential_id'])
-                missing = missing + 1
+                print(
+                    "Exception:", i, corp_creds[i]['credential_id'],
+                    corp_creds[i]['source_id'], corp_creds[i]['credential_type'],
+                    corp_creds[i]['revoked'], corp_creds[i]['inactive'], corp_creds[i]['latest'],
+                    )
+                missing.append(corp_creds[i])
+        else:
+            cache_checks = cache_checks + 1
         i = i + 1
         if 0 == i % 100000:
             print(i)
 
-    print("Total # missing in wallet:", missing, datetime.datetime.now())
+    append_agent_wallet_ids(not_in_cache)
+
+    print("Total # missing in wallet:", len(missing), datetime.datetime.now())
+    print("Cache checks:", cache_checks, ", Agent checks:", agent_checks)
 
 
 try:

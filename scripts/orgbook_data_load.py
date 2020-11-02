@@ -192,3 +192,14 @@ def get_agent_wallet_ids():
             agent_wallet_ids[row["wallet_id"]] = row["wallet_id"]
 
     return agent_wallet_ids
+
+
+def append_agent_wallet_ids(agent_ids):
+    """
+    Appends agent credential ids to our local cache
+    """
+    with open('export/export-wallet-cred-ids.txt', mode='a') as corp_file:
+        fieldnames = ["type", "wallet_id"]
+        corp_writer = csv.DictWriter(corp_file, fieldnames=fieldnames, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        for agent_id in agent_ids:
+            corp_writer.writerow({"type": "Indy::Credential", "wallet_id": agent_id["credential_id"]})
