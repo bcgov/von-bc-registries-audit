@@ -57,7 +57,8 @@ async def process_credential_queue():
     sql4 = """select 
                   credential.credential_id, credential.id, credential.topic_id, credential.update_timestamp,
                   topic.source_id, credential.credential_type_id, credential_type.description,
-                  credential.revoked, credential.inactive, credential.latest
+                  credential.revoked, credential.inactive, credential.latest,
+                  credential.effective_date, credential.revoked_date, credential.revoked_by_id
                 from credential, topic, credential_type
                 where topic.id = credential.topic_id
                 and credential_type.id = credential.credential_type_id
@@ -70,7 +71,8 @@ async def process_credential_queue():
             corp_creds.append({
                 'credential_id': row[0], 'id': row[1], 'topic_id': row[2], 'timestamp': row[3],
                 'source_id': row[4], 'credential_type_id': row[5], 'credential_type': row[6],
-                'revoked': row[7], 'inactive': row[8], 'latest': row[9]
+                'revoked': row[7], 'inactive': row[8], 'latest': row[9],
+                'effective_date': row[10], 'revoked_date': row[11], 'revoked_by': row[12]
             })
         cur.close()
     except (Exception) as error:
@@ -82,6 +84,7 @@ async def process_credential_queue():
     agent_checks = 0
     cache_checks = 0
     missing = []
+    extra_cred = []
     not_in_cache = []
     print("Checking for valid credentials ...", datetime.datetime.now())
     while i < len(corp_creds):
@@ -95,23 +98,24 @@ async def process_credential_queue():
                 response = requests.get(url, headers=api_key_hdr)
                 response.raise_for_status()
                 if response.status_code == 404:
-                    print(
-                        "Not found:", i, corp_creds[i]['credential_id'],
-                        corp_creds[i]['source_id'], corp_creds[i]['credential_type'],
-                        corp_creds[i]['revoked'], corp_creds[i]['inactive'], corp_creds[i]['latest'],
-                        )
-                    missing.append(corp_creds[i])
+                    raise Exception("404 not found")
                 else:
                     wallet_credential = response.json()
                     # exists in agent but is not in cache
                     not_in_cache.append(corp_creds[i])
             except Exception as e:
-                print(
-                    "Exception:", i, corp_creds[i]['credential_id'],
-                    corp_creds[i]['source_id'], corp_creds[i]['credential_type'],
-                    corp_creds[i]['revoked'], corp_creds[i]['inactive'], corp_creds[i]['latest'],
-                    )
-                missing.append(corp_creds[i])
+                if (corp_creds[i]['revoked'] and corp_creds[i]['revoked_by'] is not None and
+                    corp_creds[i]['effective_date'] == corp_creds[i]['revoked_date']):
+                    print("Extra cred in TOB:", i, corp_creds[i]['credential_id'])
+                    extra_cred.append(corp_creds[i])
+                else:
+                    print(
+                        "Exception:", i, corp_creds[i]['credential_id'],
+                        corp_creds[i]['topic_id'], corp_creds[i]['source_id'], corp_creds[i]['credential_type'],
+                        corp_creds[i]['revoked'], corp_creds[i]['inactive'], corp_creds[i]['latest'],
+                        corp_creds[i]['timestamp'],
+                        )
+                    missing.append(corp_creds[i])
         else:
             cache_checks = cache_checks + 1
         i = i + 1
@@ -120,7 +124,7 @@ async def process_credential_queue():
 
     append_agent_wallet_ids(not_in_cache)
 
-    print("Total # missing in wallet:", len(missing), datetime.datetime.now())
+    print("Total # missing in wallet:", len(missing), ", Extra:", len(extra_cred), datetime.datetime.now())
     print("Cache checks:", cache_checks, ", Agent checks:", agent_checks)
 
 
