@@ -32,6 +32,9 @@ TOPIC_ID_SEARCH = "/search/topic?inactive=false&latest=true&revoked=false&topic_
 AGENT_API_URL = os.environ.get("AGENT_API_URL", "http://localhost:8021/credential/")
 AGENT_API_KEY = os.environ.get("AGENT_API_KEY")
 
+# default is to audit active (non-revoked) credentials
+AUDIT_ALL_CREDENTIALS = (os.environ.get("AUDIT_ALL_CREDENTIALS", "false").lower() == 'true')
+
 
 """
 Detail audit report - credential list from orgbook.
@@ -54,13 +57,14 @@ async def process_credential_queue():
 
     # get all the corps from orgbook
     print("Get credential stats from OrgBook DB", datetime.datetime.now())
+    cred_filter = " and not credential.revoked " if not AUDIT_ALL_CREDENTIALS else ""
     sql4 = """select 
                   credential.credential_id, credential.id, credential.topic_id, credential.update_timestamp,
                   topic.source_id, credential.credential_type_id, credential_type.description,
                   credential.revoked, credential.inactive, credential.latest,
                   credential.effective_date, credential.revoked_date, credential.revoked_by_id
                 from credential, topic, credential_type
-                where topic.id = credential.topic_id
+                where topic.id = credential.topic_id""" + cred_filter + """
                 and credential_type.id = credential.credential_type_id
                 order by id;"""
     corp_creds = []

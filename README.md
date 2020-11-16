@@ -45,6 +45,12 @@ ORGBOOK_DB_PORT=<port> \
 
 This script reads and updates an extract of the OrgBook wallet credential id's (since it takes so long to extract these id's).  Each time the script runs it reads this file into an in-memory cache, and then reads each OrgBook credential.  For Credentials with a eallet id not in cache the wallet is queried using the aca-py API url and key, and if the wallet record exists the id is appended to the extract file.
 
+Note that by default this script only compares *non-revoked* credentials (as these are the only credentials that can be verified through the OrgBook API).  To audit *all* credentials specify an additional environment variable:
+
+```bash
+AUDIT_ALL_CREDENTIALS=true ... python ./detail_audit_report_agent.py
+```
+
 ## OrgBook Search Database / Wallet Audit - Script Output
 
 This script prints out admin commands required to correct the data in OrgBook.  This can include deletimg the existing OrgBook data and re-queuing data data from the BC Reg issuer.  Commands will look like the following example:
