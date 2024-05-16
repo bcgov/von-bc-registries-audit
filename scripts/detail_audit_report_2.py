@@ -9,8 +9,7 @@ import requests
 import csv
 
 from config import get_connection, get_db_sql, get_sql_record_count, CORP_TYPES_IN_SCOPE, corp_num_with_prefix, bare_corp_num
-from orgbook_data_load import get_orgbook_all_corps
-from orgbook_data_audit import compare_bc_reg_orgbook
+from orgbook_data_load import get_orgbook_all_corps, get_orgbook_missing_relations
 
 USE_LEAR = (os.environ.get('USE_LEAR', 'false').lower() == 'true')
 
@@ -22,4 +21,5 @@ if __name__ == "__main__":
     Reads from the orgbook database and compares:
     """
     # read from orgbook database
-    orgbook_corp_types = get_orgbook_all_corps(USE_LEAR=USE_LEAR)
+    (orgbook_corp_types, orgbook_corp_names, orgbook_corp_infos) = get_orgbook_all_corps(USE_LEAR=USE_LEAR)
+    orgbook_corp_relations = get_orgbook_missing_relations(USE_LEAR=USE_LEAR)
