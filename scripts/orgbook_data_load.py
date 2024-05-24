@@ -356,6 +356,84 @@ def get_orgbook_all_corps_csv():
     return (orgbook_corp_types, orgbook_corp_names, orgbook_corp_infos)
 
 
+def get_orgbook_missing_relations(USE_LEAR: bool = False):
+    """
+    Checks orgbook for missing/mis-matched relationships.
+    """
+    conn = None
+    try:
+        conn = get_connection('org_book')
+    except (Exception) as error:
+        print(error)
+        raise
+
+    # get all the mis-matched relationships from orgbook
+    print("Get corp relationships from OrgBook DB", datetime.datetime.now())
+    orgbook_corp_infos = {}
+    with open('export/orgbook_corp_relations.csv', mode='w') as corp_file:
+        fieldnames = ["tr1_topic_id", "tr1_related_topic_id", "id_1", "s_1", "id_2", "s_2"]
+        corp_writer = csv.DictWriter(corp_file, fieldnames=fieldnames, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        corp_writer.writeheader()
+
+        if not USE_LEAR:
+            sql = """
+                select tr1_topic_id, tr1_related_topic_id,
+                  t1.id id_1, t1.source_id s_1,
+                  t2.id id_2, t2.source_id s_2
+                from (
+                select * from (
+                select 
+                  tr1.topic_id tr1_topic_id,
+                  tr1.related_topic_id tr1_related_topic_id,
+                  tr2.topic_id tr2_topic_id,
+                  tr2.related_topic_id tr2_related_topic_id
+                from topic_relationship tr1
+                full outer join topic_relationship tr2
+                   on tr1.topic_id = tr2.related_topic_id
+                  and tr1.related_topic_id = tr2.topic_id
+                order by tr1.topic_id, tr1.related_topic_id
+                ) as related
+                where (related.tr2_topic_id is null
+                   or related.tr2_related_topic_id is null)
+                ) as unrelated,
+                  topic as t1,
+                  topic as t2
+                where t1.id = tr1_topic_id
+                  and t2.id = tr1_related_topic_id
+                order by tr1_topic_id desc;
+            """
+
+            try:
+                cur = conn.cursor()
+                cur.execute(sql)
+                for row in cur:
+                    write_corp = {
+                        "tr1_topic_id": row[0],
+                        "tr1_related_topic_id": row[1],
+                        "id_1": row[2],
+                        "s_1":row[3],
+                        "id_2": row[4],
+                        "s_2": row[5],
+                    }
+                    corp_writer.writerow(write_corp)
+                cur.close()
+            except (Exception) as error:
+                print(error)
+                raise
+
+    return get_orgbook_missing_relations_csv()
+
+
+def get_orgbook_missing_relations_csv():
+    orgbook_corp_relations = []
+    with open('export/orgbook_corp_relations.csv', mode='r') as corp_file:
+        corp_reader = csv.DictReader(corp_file)
+        for row in corp_reader:
+            orgbook_corp_relations.append(row)
+
+    return orgbook_corp_relations
+
+
 def get_event_proc_future_corps(USE_LEAR: bool = False):
     """
     Reads from the event processor database and writes to a csv file:

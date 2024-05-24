@@ -23,6 +23,8 @@ from config import (
 from orgbook_data_load import (
     get_orgbook_all_corps,
     get_orgbook_all_corps_csv,
+    get_orgbook_missing_relations,
+    get_orgbook_missing_relations_csv,
     get_event_proc_future_corps,
     get_event_proc_future_corps_csv,
     get_bc_reg_corps, 
@@ -51,6 +53,10 @@ if __name__ == "__main__":
         (orgbook_corp_types, orgbook_corp_names, orgbook_corp_infos) = get_orgbook_all_corps_csv()
     else:
         (orgbook_corp_types, orgbook_corp_names, orgbook_corp_infos) = get_orgbook_all_corps(USE_LEAR=USE_LEAR)
+    if USE_CSV:
+        orgbook_corp_relations = get_orgbook_missing_relations_csv()
+    else:
+        orgbook_corp_relations = get_orgbook_missing_relations(USE_LEAR=USE_LEAR)
 
     # corps that are still in the event processor queue waiting to be processed (won't be in orgbook yet)
     if USE_CSV:
@@ -65,7 +71,17 @@ if __name__ == "__main__":
         (bc_reg_corp_types, bc_reg_corp_names, bc_reg_corp_infos) = get_bc_reg_corps(USE_LEAR=USE_LEAR)
 
     # do the orgbook/bc reg compare
-    wrong_bus_num = compare_bc_reg_orgbook(bc_reg_corp_types, bc_reg_corp_names, bc_reg_corp_infos, orgbook_corp_types, orgbook_corp_names, orgbook_corp_infos, future_corps, USE_LEAR=USE_LEAR)
+    wrong_bus_num = compare_bc_reg_orgbook(
+        bc_reg_corp_types,
+        bc_reg_corp_names,
+        bc_reg_corp_infos,
+        orgbook_corp_types,
+        orgbook_corp_names,
+        orgbook_corp_infos,
+        orgbook_corp_relations,
+        future_corps,
+        USE_LEAR=USE_LEAR,
+    )
 
     if 0 < len(wrong_bus_num) and not USE_LEAR:
         bn_requeue_sql = """

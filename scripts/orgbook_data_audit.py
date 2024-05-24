@@ -82,7 +82,17 @@ def compare_dates(orgbook_reg_dt, bc_reg_reg_dt, USE_LEAR: bool = False):
     else:
         return compare_dates_colin(orgbook_reg_dt, bc_reg_reg_dt)
 
-def compare_bc_reg_orgbook(bc_reg_corp_types, bc_reg_corp_names, bc_reg_corp_infos, orgbook_corp_types, orgbook_corp_names, orgbook_corp_infos, future_corps, USE_LEAR: bool = False):
+def compare_bc_reg_orgbook(
+    bc_reg_corp_types,
+    bc_reg_corp_names,
+    bc_reg_corp_infos,
+    orgbook_corp_types,
+    orgbook_corp_names,
+    orgbook_corp_infos,
+    orgbook_corp_relations,
+    future_corps,
+    USE_LEAR: bool = False,
+):
     missing_in_orgbook = []
     missing_in_bcreg = []
     wrong_corp_type = []
@@ -157,6 +167,24 @@ def compare_bc_reg_orgbook(bc_reg_corp_types, bc_reg_corp_names, bc_reg_corp_inf
             error_msgs += "OrgBook corp not in BC Reg: " + orgbook_corp + "\n"
             error_cmds += "./manage -p bc -e prod deleteTopic " + orgbook_corp + "\n"
 
+    # fixes for missing relationships
+    reln_hash = {}
+    reln_list = []
+    if not USE_LEAR:
+        for relation in orgbook_corp_relations:
+            reln = relation['s_2'] + ":" + relation['s_1']
+            if not reln in reln_hash:
+                reln_hash[reln] = reln
+                reln_list.append(reln)
+                error_msgs += "Missing relationship in OrgBook:" + reln + "\n"
+                reg_cmd = "queueOrgForRelnsUpdate"
+                corp_num = relation['s_2']
+                if corp_num.startswith('FM'):
+                    reg_cmd = "queueOrgForRelnsUpdateLear"
+                elif corp_num.startswith('BC'):
+                    corp_num = corp_num[2:]
+                error_cmds += "./manage -e prod " + reg_cmd + " " + corp_num + " " + relation['s_1'] + "\n"
+
     corp_errors = (len(missing_in_orgbook) +
                     len(missing_in_bcreg) +
                     len(wrong_corp_type) +
@@ -179,6 +207,8 @@ def compare_bc_reg_orgbook(bc_reg_corp_types, bc_reg_corp_names, bc_reg_corp_inf
     error_summary += "Wrong business number:   " + str(len(wrong_bus_num)) + " " + str(wrong_bus_num) + "\n"
     error_summary += "Wrong corp registration: " + str(len(wrong_corp_reg_dt)) + " " + str(wrong_corp_reg_dt) + "\n"
     error_summary += "Wrong corp jurisdiction: " + str(len(wrong_corp_juris)) + " " + str(wrong_corp_juris) + "\n"
+    if not USE_LEAR:
+        error_summary += "Mis-matched OrgBook relationships: " + str(len(reln_list)) + " " + str(reln_list) + "\n"
 
     if 0 < corp_errors:
         log_error(error_summary)
