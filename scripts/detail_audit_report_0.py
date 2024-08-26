@@ -8,7 +8,7 @@ import decimal
 import csv
 
 from config import get_connection, get_db_sql, get_sql_record_count, CORP_TYPES_IN_SCOPE, corp_num_with_prefix, bare_corp_num
-from orgbook_data_load import get_bc_reg_corps
+from orgbook_data_load import get_bc_reg_corps, get_bc_reg_lear_all_relations
 
 
 USE_LEAR = (os.environ.get('USE_LEAR', 'false').lower() == 'true')
@@ -21,3 +21,4 @@ if __name__ == "__main__":
     Reads all corps and corp types from the BC Reg database and writes to a csv file.
     """
     get_bc_reg_corps(USE_LEAR=USE_LEAR)
+    get_bc_reg_lear_all_relations()

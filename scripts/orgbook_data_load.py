@@ -251,6 +251,73 @@ def get_bc_reg_lear_corps():
     return get_bc_reg_corps_csv()
 
 
+def get_bc_reg_lear_all_relations():
+    """
+    Reads all ACTIVE corp relationships from the BC Reg LEAR database and writes to a csv file.
+    """
+
+    # run this query against BC Reg LEAR database:
+    sql1 = """
+        select
+          b.identifier         as firm
+          ,p.identifier        as owner
+          ,p.organization_name as owner_name
+          from parties         p
+              ,party_roles     r
+              ,businesses      b
+          where r.party_id=p.id
+            and r.business_id = b.id
+            and p.party_type='organization'
+            and p.identifier is not null
+            and r.role in ('proprietor','partner')
+            and r.cessation_date is null;
+    """
+
+    bc_reg_owners = {}
+    bc_reg_firms = {}
+    bc_reg_count = 0
+    with open('export/bc_reg_relations.csv', mode='w') as corp_file:
+        fieldnames = ["firm", "owner", "owner_name"]
+        corp_writer = csv.DictWriter(corp_file, fieldnames=fieldnames, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        corp_writer.writeheader()
+
+        print("Get corp relations from BC Registries LEAR DB", datetime.datetime.now())
+        start_time = time.perf_counter()
+        processed_count = 0
+        bc_reg_recs = get_db_sql("bc_reg_lear", sql1)
+        for bc_reg_rec in bc_reg_recs:
+            bc_reg_relation = {
+                "owner": bc_reg_rec['owner'],
+                "firm": bc_reg_rec['firm'],
+                "owner_name": bc_reg_rec['owner_name'],
+            }
+            bc_reg_owners[bc_reg_rec['owner']] = bc_reg_relation
+            bc_reg_firms[bc_reg_rec['firm']] = bc_reg_relation
+            corp_writer.writerow(bc_reg_relation)
+
+    return get_bc_reg_lear_all_relations_csv()
+
+
+def get_bc_reg_lear_all_relations_csv():
+    """
+    Check if all the BC Reg relations are in orgbook
+    """
+    bc_reg_owners = []
+    bc_reg_firms = []
+    with open('export/bc_reg_relations.csv', mode='r') as corp_file:
+        corp_reader = csv.DictReader(corp_file)
+        for row in corp_reader:
+            bc_reg_relation = {
+                "owner": row['owner'],
+                "firm": row['firm'],
+                "owner_name": row['owner_name'],
+            }
+            bc_reg_owners.append(bc_reg_relation)
+            bc_reg_firms.append(bc_reg_relation)
+
+    return (bc_reg_owners, bc_reg_firms)
+
+
 def get_orgbook_all_corps(USE_LEAR: bool = False):
     """
     Reads all companies from the orgbook database
@@ -356,6 +423,74 @@ def get_orgbook_all_corps_csv():
     return (orgbook_corp_types, orgbook_corp_names, orgbook_corp_infos)
 
 
+def get_orgbook_active_relations(USE_LEAR: bool = False):
+    """
+    Checks orgbook for all active relationships.
+    """
+    conn = None
+    try:
+        conn = get_connection('org_book')
+    except (Exception) as error:
+        print(error)
+        raise
+
+    # get all the mis-matched relationships from orgbook
+    print("Get all corp relationships from OrgBook DB", datetime.datetime.now())
+    orgbook_corp_infos = {}
+    with open('export/orgbook_corp_active_relations.csv', mode='w') as corp_file:
+        fieldnames = ["rel_id", "credential_id", "source_id_1", "source_id_2", "cred_id", "effective_date", "revoked"]
+        corp_writer = csv.DictWriter(corp_file, fieldnames=fieldnames, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        corp_writer.writeheader()
+
+        if not USE_LEAR:
+            sql = """
+                select 
+                  t_r.id rel_id, t_r.credential_id credential_id,
+                  t_1.source_id source_id_1, t_2.source_id source_id_2,
+                  c.id cred_id, c.effective_date effective_date,
+                  c.revoked revoked
+                from topic_relationship t_r,
+                     topic t_1,
+                     topic t_2,
+                     credential c
+                where t_r.topic_id = t_1.id
+                  and t_r.related_topic_id = t_2.id
+                  and c.id = t_r.credential_id
+                  and c.revoked = false;
+            """
+
+            try:
+                cur = conn.cursor()
+                cur.execute(sql)
+                for row in cur:
+                    write_corp = {
+                        "rel_id": row[0],
+                        "credential_id": row[1],
+                        "source_id_1": row[2],
+                        "source_id_2":row[3],
+                        "cred_id": row[4],
+                        "effective_date": row[5],
+                        "revoked": row[6],
+                    }
+                    corp_writer.writerow(write_corp)
+                cur.close()
+            except (Exception) as error:
+                print(error)
+                raise
+
+    return get_orgbook_active_relations_csv()
+
+
+def get_orgbook_active_relations_csv():
+    orgbook_corp_relations = []
+    with open('export/orgbook_corp_active_relations.csv', mode='r') as corp_file:
+        corp_reader = csv.DictReader(corp_file)
+        for row in corp_reader:
+            orgbook_corp_relations.append(row)
+
+    return orgbook_corp_relations
+
+
 def get_orgbook_missing_relations(USE_LEAR: bool = False):
     """
     Checks orgbook for missing/mis-matched relationships.
@@ -368,9 +503,9 @@ def get_orgbook_missing_relations(USE_LEAR: bool = False):
         raise
 
     # get all the mis-matched relationships from orgbook
-    print("Get corp relationships from OrgBook DB", datetime.datetime.now())
+    print("Get mis-matched corp relationships from OrgBook DB", datetime.datetime.now())
     orgbook_corp_infos = {}
-    with open('export/orgbook_corp_relations.csv', mode='w') as corp_file:
+    with open('export/orgbook_corp_missing_relations.csv', mode='w') as corp_file:
         fieldnames = ["tr1_topic_id", "tr1_related_topic_id", "id_1", "s_1", "id_2", "s_2"]
         corp_writer = csv.DictWriter(corp_file, fieldnames=fieldnames, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         corp_writer.writeheader()
@@ -426,7 +561,7 @@ def get_orgbook_missing_relations(USE_LEAR: bool = False):
 
 def get_orgbook_missing_relations_csv():
     orgbook_corp_relations = []
-    with open('export/orgbook_corp_relations.csv', mode='r') as corp_file:
+    with open('export/orgbook_corp_missing_relations.csv', mode='r') as corp_file:
         corp_reader = csv.DictReader(corp_file)
         for row in corp_reader:
             orgbook_corp_relations.append(row)
