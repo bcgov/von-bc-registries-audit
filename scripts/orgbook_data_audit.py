@@ -198,7 +198,7 @@ def compare_bc_reg_orgbook(
         for relation in bc_reg_owners:
             f_hash = relation["firm"] + ":" + relation["owner"]
             o_hash = relation["owner"] + ":" + relation["firm"]
-            if not f_hash in active_reln_hash:
+            if (not f_hash in reln_hash) and (not f_hash in active_reln_hash):
                 active_reln_list.append(f_hash)
                 error_msgs += "Missing relationship in OrgBook:" + f_hash + "\n"
                 reg_cmd = "queueOrgForRelnsUpdate"
@@ -206,7 +206,7 @@ def compare_bc_reg_orgbook(
                 if corp_num.startswith('BC'):
                     corp_num = corp_num[2:]
                 error_cmds += "./manage -e prod " + reg_cmd + " " + corp_num + " " + relation['firm'] + "\n"
-            if not o_hash in active_reln_hash:
+            if (not f_hash in reln_hash) and (not o_hash in active_reln_hash):
                 active_reln_list.append(o_hash)
                 error_msgs += "Missing relationship in OrgBook:" + o_hash + "\n"
                 reg_cmd = "queueOrgForRelnsUpdateLear"

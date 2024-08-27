@@ -251,6 +251,26 @@ def get_bc_reg_lear_corps():
     return get_bc_reg_corps_csv()
 
 
+def is_valid_corp_num(corp_num):
+    try:
+        # if corp_num is an integer add a "BC" prefix"
+        i_corp_num = int(corp_num)
+        corp_num = "BC" + corp_num
+    except:
+        pass
+
+    # all corp nums will be 8 or 9 chars
+    if 8 > len(corp_num) or 9 < len(corp_num):
+        return False
+
+    # should only be alpha-numeric
+    if not corp_num.isalnum():
+        return False
+
+    # just return True for now
+    return True
+
+
 def get_bc_reg_lear_all_relations():
     """
     Reads all ACTIVE corp relationships from the BC Reg LEAR database and writes to a csv file.
@@ -269,7 +289,7 @@ def get_bc_reg_lear_all_relations():
             and r.business_id = b.id
             and p.party_type='organization'
             and p.identifier is not null
-            and r.role in ('proprietor','partner')
+            and r.role in ('proprietor')
             and r.cessation_date is null;
     """
 
@@ -286,14 +306,15 @@ def get_bc_reg_lear_all_relations():
         processed_count = 0
         bc_reg_recs = get_db_sql("bc_reg_lear", sql1)
         for bc_reg_rec in bc_reg_recs:
-            bc_reg_relation = {
-                "owner": bc_reg_rec['owner'],
-                "firm": bc_reg_rec['firm'],
-                "owner_name": bc_reg_rec['owner_name'],
-            }
-            bc_reg_owners[bc_reg_rec['owner']] = bc_reg_relation
-            bc_reg_firms[bc_reg_rec['firm']] = bc_reg_relation
-            corp_writer.writerow(bc_reg_relation)
+            if is_valid_corp_num(bc_reg_rec['owner']) and is_valid_corp_num(bc_reg_rec['firm']):
+                bc_reg_relation = {
+                    "owner": bc_reg_rec['owner'],
+                    "firm": bc_reg_rec['firm'],
+                    "owner_name": bc_reg_rec['owner_name'],
+                }
+                bc_reg_owners[bc_reg_rec['owner']] = bc_reg_relation
+                bc_reg_firms[bc_reg_rec['firm']] = bc_reg_relation
+                corp_writer.writerow(bc_reg_relation)
 
     return get_bc_reg_lear_all_relations_csv()
 
