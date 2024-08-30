@@ -228,6 +228,9 @@ def bare_corp_num(corp_num):
 
 
 def is_valid_corp_num(corp_num):
+    if not corp_num:
+        return False
+
     try:
         # if corp_num is an integer add a "BC" prefix"
         i_corp_num = int(corp_num)
