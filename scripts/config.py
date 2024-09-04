@@ -225,3 +225,26 @@ def bare_corp_num(corp_num):
         return corp_num[2:]
     else:
         return corp_num
+
+
+def is_valid_corp_num(corp_num):
+    if not corp_num:
+        return False
+
+    try:
+        # if corp_num is an integer add a "BC" prefix"
+        i_corp_num = int(corp_num)
+        corp_num = "BC" + corp_num
+    except:
+        pass
+
+    # all corp nums will be 8 or 9 chars
+    if 8 > len(corp_num) or 9 < len(corp_num):
+        return False
+
+    # should only be alpha-numeric
+    if not corp_num.isalnum():
+        return False
+
+    # just return True for now
+    return True

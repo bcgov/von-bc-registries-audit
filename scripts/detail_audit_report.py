@@ -25,10 +25,14 @@ from orgbook_data_load import (
     get_orgbook_all_corps_csv,
     get_orgbook_missing_relations,
     get_orgbook_missing_relations_csv,
+    get_orgbook_active_relations,
+    get_orgbook_active_relations_csv,
     get_event_proc_future_corps,
     get_event_proc_future_corps_csv,
     get_bc_reg_corps, 
     get_bc_reg_corps_csv,
+    get_bc_reg_lear_all_relations,
+    get_bc_reg_lear_all_relations_csv,
 )
 from orgbook_data_audit import compare_bc_reg_orgbook
 from rocketchat_hooks import log_error, log_warning, log_info
@@ -54,9 +58,11 @@ if __name__ == "__main__":
     else:
         (orgbook_corp_types, orgbook_corp_names, orgbook_corp_infos) = get_orgbook_all_corps(USE_LEAR=USE_LEAR)
     if USE_CSV:
-        orgbook_corp_relations = get_orgbook_missing_relations_csv()
+        orgbook_corp_missing_relations = get_orgbook_missing_relations_csv()
+        orgbook_corp_active_relations = get_orgbook_active_relations_csv()
     else:
-        orgbook_corp_relations = get_orgbook_missing_relations(USE_LEAR=USE_LEAR)
+        orgbook_corp_missing_relations = get_orgbook_missing_relations(USE_LEAR=USE_LEAR)
+        orgbook_corp_active_relations = get_orgbook_active_relations(USE_LEAR=USE_LEAR)
 
     # corps that are still in the event processor queue waiting to be processed (won't be in orgbook yet)
     if USE_CSV:
@@ -67,18 +73,23 @@ if __name__ == "__main__":
     # check if all the BC Reg corps are in orgbook (with the same corp type)
     if USE_CSV:
         (bc_reg_corp_types, bc_reg_corp_names, bc_reg_corp_infos) = get_bc_reg_corps_csv()
+        (bc_reg_owners, bc_reg_firms) = get_bc_reg_lear_all_relations_csv()
     else:
         (bc_reg_corp_types, bc_reg_corp_names, bc_reg_corp_infos) = get_bc_reg_corps(USE_LEAR=USE_LEAR)
+        (bc_reg_owners, bc_reg_firms) = get_bc_reg_lear_all_relations()
 
     # do the orgbook/bc reg compare
     wrong_bus_num = compare_bc_reg_orgbook(
         bc_reg_corp_types,
         bc_reg_corp_names,
         bc_reg_corp_infos,
+        bc_reg_owners,
+        bc_reg_firms,
         orgbook_corp_types,
         orgbook_corp_names,
         orgbook_corp_infos,
-        orgbook_corp_relations,
+        orgbook_corp_missing_relations,
+        orgbook_corp_active_relations,
         future_corps,
         USE_LEAR=USE_LEAR,
     )

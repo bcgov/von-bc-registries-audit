@@ -86,10 +86,13 @@ def compare_bc_reg_orgbook(
     bc_reg_corp_types,
     bc_reg_corp_names,
     bc_reg_corp_infos,
+    bc_reg_owners,
+    bc_reg_firms,
     orgbook_corp_types,
     orgbook_corp_names,
     orgbook_corp_infos,
-    orgbook_corp_relations,
+    orgbook_corp_missing_relations,
+    orgbook_corp_active_relations,
     future_corps,
     USE_LEAR: bool = False,
 ):
@@ -170,13 +173,15 @@ def compare_bc_reg_orgbook(
     # fixes for missing relationships
     reln_hash = {}
     reln_list = []
+    active_reln_hash = {}
+    active_reln_list = []
     if not USE_LEAR:
-        for relation in orgbook_corp_relations:
+        for relation in orgbook_corp_missing_relations:
             reln = relation['s_2'] + ":" + relation['s_1']
             if not reln in reln_hash:
                 reln_hash[reln] = reln
                 reln_list.append(reln)
-                error_msgs += "Missing relationship in OrgBook:" + reln + "\n"
+                error_msgs += "Mis-matched relationship in OrgBook:" + reln + "\n"
                 reg_cmd = "queueOrgForRelnsUpdate"
                 corp_num = relation['s_2']
                 if corp_num.startswith('FM'):
@@ -185,6 +190,29 @@ def compare_bc_reg_orgbook(
                     corp_num = corp_num[2:]
                 error_cmds += "./manage -e prod " + reg_cmd + " " + corp_num + " " + relation['s_1'] + "\n"
 
+        for relation in orgbook_corp_active_relations:
+            source_id_1 = relation["source_id_1"]
+            source_id_2 = relation["source_id_2"]
+            o_hash = source_id_1 + ":" + source_id_2
+            active_reln_hash[o_hash] = o_hash
+        for relation in bc_reg_owners:
+            f_hash = relation["firm"] + ":" + relation["owner"]
+            o_hash = relation["owner"] + ":" + relation["firm"]
+            if (not f_hash in reln_hash) and (not f_hash in active_reln_hash):
+                active_reln_list.append(f_hash)
+                error_msgs += "Missing relationship in OrgBook:" + f_hash + "\n"
+                reg_cmd = "queueOrgForRelnsUpdate"
+                corp_num = relation["owner"]
+                if corp_num.startswith('BC'):
+                    corp_num = corp_num[2:]
+                error_cmds += "./manage -e prod " + reg_cmd + " " + corp_num + " " + relation['firm'] + "\n"
+            if (not f_hash in reln_hash) and (not o_hash in active_reln_hash):
+                active_reln_list.append(o_hash)
+                error_msgs += "Missing relationship in OrgBook:" + o_hash + "\n"
+                reg_cmd = "queueOrgForRelnsUpdateLear"
+                corp_num = relation["owner"]
+                error_cmds += "./manage -e prod " + reg_cmd + " " + relation['firm'] + " " + corp_num + "\n"
+
     corp_errors = (len(missing_in_orgbook) +
                     len(missing_in_bcreg) +
                     len(wrong_corp_type) +
@@ -192,7 +220,9 @@ def compare_bc_reg_orgbook(
                     len(wrong_corp_status) +
                     len(wrong_bus_num) +
                     len(wrong_corp_reg_dt) +
-                    len(wrong_corp_juris))
+                    len(wrong_corp_juris) +
+                    len(reln_list) +
+                    len(active_reln_list))
 
     if 0 < corp_errors:
         log_error(error_msgs)
@@ -209,6 +239,7 @@ def compare_bc_reg_orgbook(
     error_summary += "Wrong corp jurisdiction: " + str(len(wrong_corp_juris)) + " " + str(wrong_corp_juris) + "\n"
     if not USE_LEAR:
         error_summary += "Mis-matched OrgBook relationships: " + str(len(reln_list)) + " " + str(reln_list) + "\n"
+        error_summary += "Missing OrgBook relationships: " + str(len(active_reln_list)) + " " + str(active_reln_list) + "\n"
 
     if 0 < corp_errors:
         log_error(error_summary)
