@@ -14,6 +14,9 @@ from config import (
 )
 
 
+input_companies = [
+]
+
 all_companies = []
 
 
@@ -55,8 +58,13 @@ def get_related_companies_recursive(corp_num):
 # mainline
 if __name__ == "__main__":
     # start with a list of companies on the command line (index 0 is the script name)
-    for arg in sys.argv[1:]:
+    companies = sys.argv[1:]
+    # if no command line companies supplied use an internal list
+    if 0 == len(companies):
+        companies = input_companies
+    for arg in companies:
         if is_valid_corp_num(arg):
+            all_companies.append(arg)
             get_related_companies_recursive(arg)
 
     # build lists of corp_nums for each database
