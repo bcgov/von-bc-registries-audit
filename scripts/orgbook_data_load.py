@@ -388,21 +388,22 @@ def get_orgbook_all_corps(USE_LEAR: bool = False):
             cur.execute(sql4)
             for row in cur:
                 # row[1] is the corp_type
-                if row[1] in corp_types_filter:
-                    orgbook_corp_types[row[0]] = row[1]
-                    corp_name = row[4] if (row[4] and 0 < len(row[4])) else row[3]
-                    orgbook_corp_names[row[0]] = corp_name
-                    write_corp = {
-                        "corp_num": row[0],
-                        "corp_type": row[1],
-                        "registration_date": row[2],
-                        "corp_name":corp_name,
-                        "home_jurisdiction": row[5],
-                        "entity_status": row[6],
-                        "bus_num": row[7],
-                    }
-                    corp_writer.writerow(write_corp)
-                    orgbook_corp_infos[row[0]] = write_corp
+                # if row[1] in corp_types_filter:
+                # load all orgs and check the filter when running the audit report
+                orgbook_corp_types[row[0]] = row[1]
+                corp_name = row[4] if (row[4] and 0 < len(row[4])) else row[3]
+                orgbook_corp_names[row[0]] = corp_name
+                write_corp = {
+                    "corp_num": row[0],
+                    "corp_type": row[1],
+                    "registration_date": row[2],
+                    "corp_name":corp_name,
+                    "home_jurisdiction": row[5],
+                    "entity_status": row[6],
+                    "bus_num": row[7],
+                }
+                corp_writer.writerow(write_corp)
+                orgbook_corp_infos[row[0]] = write_corp
             cur.close()
         except (Exception) as error:
             print(error)
