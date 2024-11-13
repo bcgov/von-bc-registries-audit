@@ -52,7 +52,7 @@ def synchronous_post_url(webhook_url, payload):
     return pool.submit(asyncio.run, _post_url(webhook_url, payload)).result(timeout=30)
 
 
-def post_msg_to_webhook(level, message):
+def post_msg_to_webhook(level, message, message_details:str = None):
     if level and level <= log_level:
         payload = get_webhook_payload(level, message)
         if webhook_url and 0 < len(webhook_url):
@@ -63,28 +63,38 @@ def post_msg_to_webhook(level, message):
             except Exception as e:
                 print(">>> NOT posted webhook, error:", str(e))
         else:
-            print(">>> NOT Posted webhook level", level, "message:\n", message, "\n(no webhook_url)\n")
+            print(">>> NOT Posted webhook level", level, "message:\n", message_details if message_details else message, "\n(no webhook_url)\n")
 
         try:
-            success = email_support(payload)
+            if message_details:
+                payload = get_webhook_payload(level, message_details)
+                success = email_support(payload)
+            else:
+                success = email_support(payload)
             if success:
-                print(">>> Sent email for level", level)
+                if message_details:
+                    print(">>> Sent email for level", level)
+                else:
+                    print(">>> Sent email for level", level)
             else:
                 print(">>> No email sent")
         except Exception as e:
             print(">>> NOT sent email, error:", str(e))
 
     else:
-        print(">>> NOT Posted webhook level", level, "(", log_level, "), message:\n", message)
+        if message_details:
+            print(">>> NOT Posted webhook level", level, "(", log_level, "), message:\n", message_details)
+        else:
+            print(">>> NOT Posted webhook level", level, "(", log_level, "), message:\n", message)
 
 
-def log_info(message):
-    post_msg_to_webhook('2', message)
+def log_info(message, message_details:str = None):
+    post_msg_to_webhook('2', message, message_details)
 
 
-def log_warning(message):
-    post_msg_to_webhook('1', message)
+def log_warning(message, message_details:str = None):
+    post_msg_to_webhook('1', message, message_details)
 
 
-def log_error(message):
-    post_msg_to_webhook('0', message)
+def log_error(message, message_details:str = None):
+    post_msg_to_webhook('0', message, message_details)

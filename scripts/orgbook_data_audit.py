@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import os 
+from os import environ
 import psycopg2
 import pytz
 import datetime
@@ -28,6 +28,8 @@ timezone = pytz.timezone("PST8PDT")
 MIN_START_DATE_TZ = timezone.localize(MIN_START_DATE)
 MIN_VALID_DATE_TZ = timezone.localize(MIN_VALID_DATE)
 MAX_END_DATE_TZ   = timezone.localize(MAX_END_DATE)
+
+MAX_ERRORS_TO_POST = int(environ.get('MAX_ERRORS_TO_POST', '15'))
 
 
 # determine jurisdiction for corp
@@ -64,6 +66,7 @@ def compare_dates_lear(orgbook_reg_dt, bc_reg_reg_dt):
         return False
     return (bc_reg_reg_dt == orgbook_reg_dt)
 
+
 # compare registration dates
 def compare_dates_colin(orgbook_reg_dt, bc_reg_reg_dt):
     if bc_reg_reg_dt is None or len(bc_reg_reg_dt) == 0:
@@ -80,12 +83,22 @@ def compare_dates_colin(orgbook_reg_dt, bc_reg_reg_dt):
     except (Exception) as error:
         return MIN_START_DATE_TZ.astimezone(pytz.utc).isoformat() == orgbook_reg_dt
 
+
 # compare registration dates
 def compare_dates(orgbook_reg_dt, bc_reg_reg_dt, USE_LEAR: bool = False):
     if USE_LEAR:
         return compare_dates_lear(orgbook_reg_dt, bc_reg_reg_dt)
     else:
         return compare_dates_colin(orgbook_reg_dt, bc_reg_reg_dt)
+
+
+# find the nth occurrance of substrung
+def find_nth_occurrance(substring, string, n):
+    res = -1
+    for i in range(0, n):
+       res = string.find(substring, res + 1)
+    return res
+
 
 def compare_bc_reg_orgbook(
     bc_reg_corp_types,
@@ -238,9 +251,29 @@ def compare_bc_reg_orgbook(
                     len(reln_list) +
                     len(active_reln_list))
 
-    if 0 < corp_errors:
+    if MAX_ERRORS_TO_POST < corp_errors:
+        res = find_nth_occurrance("\n", error_msgs, MAX_ERRORS_TO_POST)
+        error_msgs_summary = error_msgs[:res+1] + "... etc ..."
+        log_error(error_msgs_summary, error_msgs)
+        res = find_nth_occurrance("\n", error_cmds, MAX_ERRORS_TO_POST)
+        error_cmds_summary = error_cmds[:res+1] + "... etc ..."
+        log_error(error_cmds_summary, error_cmds)
+    elif 0 < corp_errors:
         log_error(error_msgs)
         log_error(error_cmds)
+
+    error_summary_summary = ""
+    error_summary_summary += "Missing in OrgBook:      " + str(len(missing_in_orgbook)) + "\n"
+    error_summary_summary += "Missing in BC Reg:       " + str(len(missing_in_bcreg)) + "\n"
+    error_summary_summary += "Wrong corp type:         " + str(len(wrong_corp_type)) + "\n"
+    error_summary_summary += "Wrong corp name:         " + str(len(wrong_corp_name)) + "\n"
+    error_summary_summary += "Wrong corp status:       " + str(len(wrong_corp_status)) + "\n"
+    error_summary_summary += "Wrong business number:   " + str(len(wrong_bus_num)) + "\n"
+    error_summary_summary += "Wrong corp registration: " + str(len(wrong_corp_reg_dt)) + "\n"
+    error_summary_summary += "Wrong corp jurisdiction: " + str(len(wrong_corp_juris)) + "\n"
+    if not USE_LEAR:
+        error_summary_summary += "Mis-matched OrgBook relationships: " + str(len(reln_list)) + "\n"
+        error_summary_summary += "Missing OrgBook relationships: " + str(len(active_reln_list)) + "\n"
 
     error_summary = ""
     error_summary += "Missing in OrgBook:      " + str(len(missing_in_orgbook)) + " " + str(missing_in_orgbook) + "\n"
@@ -256,8 +289,8 @@ def compare_bc_reg_orgbook(
         error_summary += "Missing OrgBook relationships: " + str(len(active_reln_list)) + " " + str(active_reln_list) + "\n"
 
     if 0 < corp_errors:
-        log_error(error_summary)
+        log_error(error_summary_summary, error_summary)
     else:
-        log_info(error_summary)
+        log_info(error_summary_summary, error_summary)
 
     return wrong_bus_num
