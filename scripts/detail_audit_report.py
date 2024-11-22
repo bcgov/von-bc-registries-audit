@@ -94,29 +94,55 @@ if __name__ == "__main__":
         USE_LEAR=USE_LEAR,
     )
 
-    if 0 < len(wrong_bus_num) and not USE_LEAR:
-        bn_requeue_sql = """
-            WITH rows AS (
-                insert into event_by_corp_filing
-                (system_type_cd, corp_num, prev_event_id, prev_event_date, last_event_id, last_event_date, entry_date)
-                select ebcf.system_type_cd, bc_reg_corp_num, 0, '0001-01-01', ebcf.last_event_id, ebcf.last_event_date, now()
-                from event_by_corp_filing ebcf
-                cross join 
-                unnest(ARRAY[
-                $BN_CORP_LIST
-                ]) 
-                bc_reg_corp_num
-                where record_id = (select max(record_id) from event_by_corp_filing)
-                RETURNING 1
-            )
-            SELECT count(*) FROM rows;
-            """
-        wrong_bus_num_str = str(wrong_bus_num)
-        wrong_bus_num_str = wrong_bus_num_str.replace("'BC", "'")
-        bn_requeue_sql = bn_requeue_sql.replace("$BN_CORP_LIST", wrong_bus_num_str)
-        if REQUEUE_WRONG_BN_CORPS and not USE_CSV:
-            log_error("Executing: " + bn_requeue_sql)
-            count = post_db_sql("event_processor", bn_requeue_sql)
-            log_error("Inserted row count: " + str(count))
+    if 0 < len(wrong_bus_num):
+        if not USE_LEAR:
+            bn_requeue_sql = """
+                WITH rows AS (
+                    insert into event_by_corp_filing
+                    (system_type_cd, corp_num, prev_event_id, prev_event_date, last_event_id, last_event_date, entry_date)
+                    select ebcf.system_type_cd, bc_reg_corp_num, 0, '0001-01-01', ebcf.last_event_id, ebcf.last_event_date, now()
+                    from event_by_corp_filing ebcf
+                    cross join 
+                    unnest(ARRAY[
+                    $BN_CORP_LIST
+                    ]) 
+                    bc_reg_corp_num
+                    where record_id = (select max(record_id) from event_by_corp_filing where system_type_cd = 'BC_REG')
+                    RETURNING 1
+                )
+                SELECT count(*) FROM rows;
+                """
+            wrong_bus_num_str = str(wrong_bus_num)
+            wrong_bus_num_str = wrong_bus_num_str.replace("'BC", "'")
+            bn_requeue_sql = bn_requeue_sql.replace("$BN_CORP_LIST", wrong_bus_num_str)
+            if REQUEUE_WRONG_BN_CORPS and not USE_CSV:
+                log_error("Executing: " + bn_requeue_sql)
+                count = post_db_sql("event_processor", bn_requeue_sql)
+                log_error("Inserted row count: " + str(count))
+            else:
+                log_error("SQL to fix BN's: " + bn_requeue_sql)
         else:
-            log_error("SQL to fix BN's: " + bn_requeue_sql)
+            bn_requeue_sql = """
+                WITH rows AS (
+                    insert into event_by_corp_filing
+                    (system_type_cd, corp_num, prev_event_id, prev_event_date, last_event_id, last_event_date, entry_date)
+                    select ebcf.system_type_cd, bc_reg_corp_num, 0, '0001-01-01', ebcf.last_event_id, ebcf.last_event_date, now()
+                    from event_by_corp_filing ebcf
+                    cross join 
+                    unnest(ARRAY[
+                    $BN_CORP_LIST
+                    ]) 
+                    bc_reg_corp_num
+                    where record_id = (select max(record_id) from event_by_corp_filing where system_type_cd = 'BCREG_LEAR')
+                    RETURNING 1
+                )
+                SELECT count(*) FROM rows;
+                """
+            wrong_bus_num_str = str(wrong_bus_num)
+            bn_requeue_sql = bn_requeue_sql.replace("$BN_CORP_LIST", wrong_bus_num_str)
+            if REQUEUE_WRONG_BN_CORPS and not USE_CSV:
+                log_error("Executing: " + bn_requeue_sql)
+                count = post_db_sql("event_processor", bn_requeue_sql)
+                log_error("Inserted row count: " + str(count))
+            else:
+                log_error("SQL to fix BN's: " + bn_requeue_sql)

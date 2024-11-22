@@ -27,6 +27,9 @@ QUERY_LIMIT = '200000'
 REPORT_COUNT = 10000
 ERROR_THRESHOLD_COUNT = 5
 
+# default is to run the audit vs the "*_version" tables
+AUDIT_LEAR_MASTER = (os.environ.get('AUDIT_LEAR_MASTER', 'false').lower() == 'true')
+
 # value for PROD is "https://orgbook.gov.bc.ca/api/v3"
 ORGBOOK_API_URL = os.environ.get('ORGBOOK_API_URL', 'http://localhost:8081/api/v3')
 TOPIC_QUERY = "/topic/registration.registries.ca/"
@@ -187,7 +190,8 @@ def get_bc_reg_lear_corps():
     """
 
     # run this query against BC Reg LEAR database:
-    sql1 = """
+    if AUDIT_LEAR_MASTER:
+        sql1 = """
             select
                 identifier as corp_num,
                 legal_type as corp_typ_cd,
@@ -202,6 +206,25 @@ def get_bc_reg_lear_corps():
                 '' as corp_class
             from businesses
             where legal_type in ('SP', 'GP');
+        """
+    else:
+        sql1 = """
+            select
+                ver.identifier as corp_num,
+                ver.legal_type as corp_typ_cd,
+                ver.founding_date as recognition_dts,
+                bus.tax_id as bn_9,
+                ver.legal_name as corp_nme,
+                '' as corp_nme_as,
+                'BC' as can_jur_typ_cd,
+                '' as xpro_typ_cd,
+                '' as othr_juris_desc,
+                ver.state as state_typ_cd,
+                '' as corp_class
+            from businesses bus, businesses_version ver
+            where bus.legal_type in ('SP', 'GP')
+              and bus.identifier = ver.identifier
+              and ver.end_transaction_id is null;
     """
 
     bc_reg_corps = {}
