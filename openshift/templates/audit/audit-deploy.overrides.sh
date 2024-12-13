@@ -15,7 +15,7 @@ CONFIG_MAP_NAME=audit-conf
 SOURCE_FILE=$( dirname "$0" )/../../../docker/audit.conf
 
 OUTPUT_FORMAT=json
-OUTPUT_FILE=${CONFIG_MAP_NAME}-configmap_Deployment.json
+OUTPUT_FILE=${CONFIG_MAP_NAME}-configmap_DeploymentConfig.json
 
 printStatusMsg "Generating ConfigMap; ${CONFIG_MAP_NAME} ..."
 generateConfigMap "${CONFIG_MAP_NAME}" "${SOURCE_FILE}" "${OUTPUT_FORMAT}" "${OUTPUT_FILE}"
