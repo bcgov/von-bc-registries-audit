@@ -3,6 +3,7 @@
 
 # Files created by the scripts from; https://github.com/BCDevOps/openshift-project-tools
 *_DeploymentConfig.json
+*_Deployment.json
 *_BuildConfig.json
 *.local.*
 __pycache__
