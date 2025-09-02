@@ -112,6 +112,7 @@ def compare_bc_reg_orgbook(
     orgbook_corp_missing_relations,
     orgbook_corp_active_relations,
     future_corps,
+    ignore_list,
     USE_LEAR: bool = False,
 ):
     missing_in_orgbook = []
@@ -122,6 +123,7 @@ def compare_bc_reg_orgbook(
     wrong_bus_num = []
     wrong_corp_reg_dt = []
     wrong_corp_juris = []
+    ignored_corps = []
 
     if USE_LEAR:
         corp_types_filter = LEAR_CORP_TYPES_IN_SCOPE
@@ -140,7 +142,10 @@ def compare_bc_reg_orgbook(
         bc_reg_corp_name = bc_reg_corp_names[bc_reg_corp_num]
         bc_reg_corp_info = bc_reg_corp_infos[bc_reg_corp_num]
         if bc_reg_corp_type in corp_types_filter:
-            if bare_corp_num(bc_reg_corp_num) in future_corps:
+            if bc_reg_corp_num in ignore_list:
+                ignored_corps.append(bc_reg_corp_num)
+                pass
+            elif bare_corp_num(bc_reg_corp_num) in future_corps:
                 #print("Future corp ignore:", row["corp_num"])
                 pass
             elif not bc_reg_corp_num in orgbook_corp_types:
@@ -263,6 +268,8 @@ def compare_bc_reg_orgbook(
         log_error(error_cmds)
 
     error_summary_summary = ""
+    if len(ignored_corps) > 0:
+        error_summary_summary += "Ignored Corps:           " + str(len(ignored_corps)) + "\n"
     error_summary_summary += "Missing in OrgBook:      " + str(len(missing_in_orgbook)) + "\n"
     error_summary_summary += "Missing in BC Reg:       " + str(len(missing_in_bcreg)) + "\n"
     error_summary_summary += "Wrong corp type:         " + str(len(wrong_corp_type)) + "\n"
@@ -276,6 +283,8 @@ def compare_bc_reg_orgbook(
         error_summary_summary += "Missing OrgBook relationships: " + str(len(active_reln_list)) + "\n"
 
     error_summary = ""
+    if len(ignored_corps) > 0:
+        error_summary += "Ignored Corps:           " + str(len(ignored_corps)) + " " + str(ignored_corps) + "\n"
     error_summary += "Missing in OrgBook:      " + str(len(missing_in_orgbook)) + " " + str(missing_in_orgbook) + "\n"
     error_summary += "Missing in BC Reg:       " + str(len(missing_in_bcreg)) + " " + str(missing_in_bcreg) + "\n"
     error_summary += "Wrong corp type:         " + str(len(wrong_corp_type)) + " " + str(wrong_corp_type) + "\n"
