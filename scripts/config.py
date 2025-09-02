@@ -1,5 +1,6 @@
 #!/usr/bin/python
-import os 
+import json
+import os
 import psycopg2
 import traceback
 import logging
@@ -8,6 +9,8 @@ from rocketchat_hooks import log_error, log_warning, log_info
 
 
 LOGGER = logging.getLogger(__name__)
+
+IGNORE_LIST_PATH = os.environ.get('IGNORE_LIST_PATH', 'ignore_list.json')
 
 BCREG_SYSTEM_TYPE = "BC_REG"
 LEAR_SYSTEM_TYPE = "BCREG_LEAR"
@@ -25,7 +28,7 @@ CORP_TYPES_IN_SCOPE = {
     "EPR": "EXTRA PRO REG",
     "FOR": "FOREIGN",
     #"GP":  "PARTNERSHIP",
-    #"FI":  "FINANCIAL", 
+    #"FI":  "FINANCIAL",
     "LIC": "LICENSED",
     "LL":  "LL PARTNERSHIP",
     "LLC": "LIMITED CO",
@@ -87,7 +90,7 @@ def config(db_name):
         db['password'] = os.environ.get('ORGBOOK_WALLET_DB_PASSWORD', 'DB_PASSWORD')
     else:
         raise Exception('Section {0} not a valid database'.format(db_name))
- 
+
     return db
 
 
@@ -137,7 +140,7 @@ def get_db_sql(db_name, sql, args=None):
             cursor.execute(sql)
         desc = cursor.description
         column_names = [col[0] for col in desc]
-        rows = [dict(zip(column_names, row))  
+        rows = [dict(zip(column_names, row))
             for row in cursor]
         cursor.close()
         cursor = None
@@ -146,7 +149,7 @@ def get_db_sql(db_name, sql, args=None):
         LOGGER.error(error)
         LOGGER.error(traceback.print_exc())
         log_error("Exception reading DB: " + str(error))
-        raise 
+        raise
     finally:
         if cursor is not None:
             cursor.close()
@@ -172,7 +175,7 @@ def post_db_sql(db_name, sql, args=None):
         LOGGER.error(error)
         LOGGER.error(traceback.print_exc())
         log_error("Exception writing DB: " + str(error))
-        raise 
+        raise
     finally:
         if cursor is not None:
             cursor.close()
@@ -248,3 +251,18 @@ def is_valid_corp_num(corp_num):
 
     # just return True for now
     return True
+
+
+def get_ignore_list(USE_IGNORE_LIST: bool = False, USE_LEAR: bool = False):
+    if not USE_IGNORE_LIST:
+        return []
+
+    with open(IGNORE_LIST_PATH, 'r') as file:
+        ignore_list = json.load(file)
+
+    if USE_LEAR:
+        # Load LEAR ignore list
+        return ignore_list["lear"]
+    else:
+        # Load COLIN ignore list
+        return ignore_list["colin"]

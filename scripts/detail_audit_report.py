@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import os 
+import os
 import psycopg2
 import datetime
 import time
@@ -19,6 +19,7 @@ from config import (
     LEAR_CORP_TYPES_IN_SCOPE,
     corp_num_with_prefix,
     bare_corp_num,
+    get_ignore_list
 )
 from orgbook_data_load import (
     get_orgbook_all_corps,
@@ -29,7 +30,7 @@ from orgbook_data_load import (
     get_orgbook_active_relations_csv,
     get_event_proc_future_corps,
     get_event_proc_future_corps_csv,
-    get_bc_reg_corps, 
+    get_bc_reg_corps,
     get_bc_reg_corps_csv,
     get_bc_reg_lear_all_relations,
     get_bc_reg_lear_all_relations_csv,
@@ -40,6 +41,7 @@ from rocketchat_hooks import log_error, log_warning, log_info
 
 USE_CSV = (os.environ.get('USE_CSV', 'false').lower() == 'true')
 USE_LEAR = (os.environ.get('USE_LEAR', 'false').lower() == 'true')
+USE_IGNORE_LIST = (os.environ.get('USE_IGNORE_LIST', 'false').lower() == 'false')
 REQUEUE_WRONG_BN_CORPS = (os.environ.get('REQUEUE_WRONG_BN_CORPS', 'false').lower() == 'true')
 
 
@@ -78,6 +80,8 @@ if __name__ == "__main__":
         (bc_reg_corp_types, bc_reg_corp_names, bc_reg_corp_infos) = get_bc_reg_corps(USE_LEAR=USE_LEAR)
         (bc_reg_owners, bc_reg_firms) = get_bc_reg_lear_all_relations()
 
+    ignore_list = get_ignore_list(USE_IGNORE_LIST=USE_IGNORE_LIST, USE_LEAR=USE_LEAR)
+
     # do the orgbook/bc reg compare
     wrong_bus_num = compare_bc_reg_orgbook(
         bc_reg_corp_types,
@@ -91,6 +95,7 @@ if __name__ == "__main__":
         orgbook_corp_missing_relations,
         orgbook_corp_active_relations,
         future_corps,
+        ignore_list,
         USE_LEAR=USE_LEAR,
     )
 
@@ -102,10 +107,10 @@ if __name__ == "__main__":
                     (system_type_cd, corp_num, prev_event_id, prev_event_date, last_event_id, last_event_date, entry_date)
                     select ebcf.system_type_cd, bc_reg_corp_num, 0, '0001-01-01', ebcf.last_event_id, ebcf.last_event_date, now()
                     from event_by_corp_filing ebcf
-                    cross join 
+                    cross join
                     unnest(ARRAY[
                     $BN_CORP_LIST
-                    ]) 
+                    ])
                     bc_reg_corp_num
                     where record_id = (select max(record_id) from event_by_corp_filing where system_type_cd = 'BC_REG')
                     RETURNING 1
@@ -128,10 +133,10 @@ if __name__ == "__main__":
                     (system_type_cd, corp_num, prev_event_id, prev_event_date, last_event_id, last_event_date, entry_date)
                     select ebcf.system_type_cd, bc_reg_corp_num, 0, '0001-01-01', ebcf.last_event_id, ebcf.last_event_date, now()
                     from event_by_corp_filing ebcf
-                    cross join 
+                    cross join
                     unnest(ARRAY[
                     $BN_CORP_LIST
-                    ]) 
+                    ])
                     bc_reg_corp_num
                     where record_id = (select max(record_id) from event_by_corp_filing where system_type_cd = 'BCREG_LEAR')
                     RETURNING 1
