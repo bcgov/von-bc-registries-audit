@@ -97,6 +97,7 @@ jobs:
           deployment_configuration: ${{ env.APP_NAME }}
           openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
           rocketchat_webhook: ${{ secrets.ROCKETCHAT_WEBHOOK }}
+          continue_on_error: 'true'
 
   deploy2test:
     needs: [build, deploy2dev]
@@ -124,6 +125,7 @@ jobs:
           deployment_configuration: ${{ env.APP_NAME }}
           openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
           rocketchat_webhook: ${{ secrets.ROCKETCHAT_WEBHOOK }}
+          continue_on_error: 'true'
 
   deploy2prod:
     needs: [build, deploy2dev, deploy2test]
@@ -151,4 +153,4 @@ jobs:
           deployment_configuration: ${{ env.APP_NAME }}
           openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
           rocketchat_webhook: ${{ secrets.ROCKETCHAT_WEBHOOK }}
-
+          continue_on_error: 'false'
