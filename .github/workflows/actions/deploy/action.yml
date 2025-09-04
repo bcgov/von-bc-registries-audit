@@ -39,6 +39,11 @@ inputs:
     description: The URL to use for posting notifications to rocket.chat.
     required: true
 
+  continue_on_error:
+    description: Continue deployment even if there is an error.
+    required: false
+    default: 'false'
+
 runs:
   using: composite
   steps:
@@ -72,23 +77,23 @@ runs:
         oc version
         docker version
 
-        # Openshift pipeline is currently running on 14.4.6 version and according to 
+        # Openshift pipeline is currently running on 14.4.6 version and according to
         # the new red hat article - https://access.redhat.com/articles/7042033
         # the Podman auth configuration locations are preferred over Docker configuration locations.
-              
-        # In order to avoid the "unauthorized: authentication required error" and 
-        # make github actions job run successfully make sure when we try to login to openshift registry 
-        # we need to define the oc registry login --to="${HOME}/.docker/config.json" in the oc login action step. 
-            
-        # This was not an issue when Openshift pipeline was running on 14.2 or 14.3 version 
-        # but since Openshift upgraded to 14.4 version it started giving warning 
-        # message : the default reading order of registry auth file will be changed from "${HOME}/.docker/config.json" 
-        # to podman registry config locations in the future version of oc. 
-        # "${HOME}/.docker/config.json" is deprecated, but can still be used for storing credentials 
-        # as a fallback. See https://github.com/containers/image/blob/main/docs/containers-auth.json.5.md for the order 
+
+        # In order to avoid the "unauthorized: authentication required error" and
+        # make github actions job run successfully make sure when we try to login to openshift registry
+        # we need to define the oc registry login --to="${HOME}/.docker/config.json" in the oc login action step.
+
+        # This was not an issue when Openshift pipeline was running on 14.2 or 14.3 version
+        # but since Openshift upgraded to 14.4 version it started giving warning
+        # message : the default reading order of registry auth file will be changed from "${HOME}/.docker/config.json"
+        # to podman registry config locations in the future version of oc.
+        # "${HOME}/.docker/config.json" is deprecated, but can still be used for storing credentials
+        # as a fallback. See https://github.com/containers/image/blob/main/docs/containers-auth.json.5.md for the order
         # of podman registry config locations.
         oc registry login --to="${HOME}/.docker/config.json"
-    
+
     - name: Tag the image in the GHCR as ${{ inputs.environment }}
       shell: bash
       run: |
@@ -105,9 +110,11 @@ runs:
 
     - name: Trigger OpenShift rollout
       shell: bash
+      continue-on-error: ${{ inputs.continue_on_error == 'true' }}
       run: |
         echo starting rollout in ${{ inputs.namespace }}
-        oc -n ${{ inputs.namespace }} rollout status dc/${{ inputs.deployment_configuration }} --watch
+        oc -n ${{ inputs.namespace }} rollout restart deployment/${{ inputs.deployment_configuration }}
+        oc -n ${{ inputs.namespace }} rollout status deployment/${{ inputs.deployment_configuration }} --watch
 
     - name: Rocket.Chat Notification
       uses: RocketChat/Rocket.Chat.GitHub.Action.Notification@1.1.1
@@ -119,4 +126,4 @@ runs:
         mention_if: 'failure'
         channel: '#ditp-gha-notifications'
         url: ${{ inputs.rocketchat_webhook }}
-        commit: true     
+        commit: true
