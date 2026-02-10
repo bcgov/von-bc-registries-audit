@@ -41,7 +41,7 @@ from rocketchat_hooks import log_error, log_warning, log_info
 
 USE_CSV = (os.environ.get('USE_CSV', 'false').lower() == 'true')
 USE_LEAR = (os.environ.get('USE_LEAR', 'false').lower() == 'true')
-USE_IGNORE_LIST = (os.environ.get('USE_IGNORE_LIST', 'false').lower() == 'false')
+USE_IGNORE_LIST = (os.environ.get('USE_IGNORE_LIST', 'false').lower() == 'true')
 REQUEUE_WRONG_BN_CORPS = (os.environ.get('REQUEUE_WRONG_BN_CORPS', 'false').lower() == 'true')
 
 
