@@ -88,6 +88,12 @@ objects:
                 items:
                   - key: ${CONFIG_FILE_NAME}
                     path: ${CONFIG_FILE_NAME}
+            - name: audit-ignore-list-volume
+              configMap:
+                name: audit-ignore-list
+                items:
+                  - key: ignore_list.json
+                    path: ignore_list.json
           containers:
             - name: ${NAME}${SUFFIX}
               command:
@@ -270,6 +276,9 @@ objects:
                 - name: ${NAME}${SUFFIX}-config-volume
                   mountPath: ${CONFIG_MOUNT_PATH}${CONFIG_FILE_NAME}
                   subPath: ${CONFIG_FILE_NAME}
+                - name: audit-ignore-list-volume
+                  mountPath: /opt/app-root/src/scripts/ignore_list.json
+                  subPath: ignore_list.json
 parameters:
   - name: NAME
     displayName: Name
