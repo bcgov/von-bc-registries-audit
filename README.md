@@ -111,6 +111,17 @@ The **Management Commands** list the [orgbook-configurations](https://github.com
 
 The **Error Summary** provides a summary of the audit run and is produced whether or not there are any issues detected.
 
+### Corporation number prefixes
+
+The audit uses the same corporation number prefix rules as the BC Registries
+agent: numbers starting with `BC`, `C0`, `C1`, or `Q` are preserved. Other numbers
+for `BC`, `ULC`, `CC`, and `BEN` types receive a `BC` prefix.
+For example, a continued-in benefit company numbered `C1565383` is looked up as
+`C1565383`, not `BCC1565383`.
+
+After updating these rules, regenerate any cached COLIN CSV exports before using
+`USE_CSV=true`; existing exports contain the previously generated identifiers.
+
 ### Management Commands
 
 These can include commands to delete the existing OrgBook data and re-queue the data from the BC Reg issuer.  Commands will look like the following example:
@@ -177,3 +188,34 @@ Example (run from the `openshift` folder) - Build and deploy the `dev` and `test
 ./manage -e tools buildAndTag dev
 ./manage -e tools -e tools tag dev test
 ```
+
+### Updating the ignore list
+
+The deployed audit mounts [scripts/ignore_list.json](./scripts/ignore_list.json)
+from the `audit-ignore-list` ConfigMap. Deploying a new image alone does not
+refresh this list. After deploying the corrected image, refresh the ConfigMap in
+each target namespace and restart the audit deployment (the `subPath` mount does
+not receive ConfigMap updates automatically). Run from the repository root:
+
+```bash
+oc -n <namespace> create configmap audit-ignore-list \
+  --from-file=ignore_list.json=scripts/ignore_list.json \
+  --dry-run=client -o yaml | oc -n <namespace> apply -f -
+oc -n <namespace> rollout restart deployment/audit
+oc -n <namespace> rollout status deployment/audit
+```
+
+Remove obsolete `BCC1198486` and `BCC1565383` workarounds rather than ignoring
+the correctly numbered companies. Genuine discrepancies, such as a stale legal
+type in OrgBook, should still be reported.
+
+## Tests
+
+With [scripts/requirements.txt](./scripts/requirements.txt) installed, run the
+prefix and audit-report regression tests from the repository root:
+
+```bash
+python -m unittest discover -s scripts -p "test_*.py" -v
+```
+
+These tests do not connect to databases or send notifications.

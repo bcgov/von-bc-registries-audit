@@ -210,6 +210,8 @@ def starts_with_bc(corp_num):
 
 # corp num with prefix
 def corp_num_with_prefix(corp_typ_cd, corp_num):
+    if corp_num.startswith(('BC', 'C0', 'C1', 'Q')):
+        return corp_num
     p_corp_num = corp_num
     if corp_typ_cd == 'BC':
         p_corp_num = starts_with_bc(corp_num)
