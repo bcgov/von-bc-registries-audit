@@ -1,0 +1,76 @@
+name: 'Notify Teams'
+description: 'Post a GitHub notification to the n8n webhook that relays to Microsoft Teams'
+
+inputs:
+  webhook_url:
+    description: 'n8n webhook URL for GitHub notifications'
+    required: false
+    default: ''
+  status:
+    description: 'Pipeline status (success or failure)'
+    required: true
+  title:
+    description: 'Job/pipeline name shown in the notification'
+    required: false
+    default: 'CD Pipeline'
+
+runs:
+  using: composite
+  steps:
+    - name: Send notification
+      shell: bash
+      env:
+        WEBHOOK_URL: ${{ inputs.webhook_url }}
+        STATUS: ${{ inputs.status }}
+        TITLE: ${{ inputs.title }}
+      run: |
+        if [ -z "${WEBHOOK_URL}" ]; then
+          echo "TEAMS_WEBHOOK_URL is not configured, skipping notification"
+          exit 0
+        fi
+
+        if [ "${STATUS}" = "success" ]; then
+          VERB="succeeded"
+        else
+          VERB="failed"
+        fi
+
+        RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+        PAYLOAD=$(jq -n \
+          --arg text "*${TITLE}* ${VERB}" \
+          --arg workflow "[${GITHUB_WORKFLOW}](${RUN_URL})" \
+          --arg repository "[${GITHUB_REPOSITORY}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY})" \
+          --arg ref "${GITHUB_REF}" \
+          --arg event_name "${GITHUB_EVENT_NAME}" \
+          '{
+            text: $text,
+            attachments: [{
+              fields: [
+                { title: "workflow", value: $workflow },
+                { title: "repository", value: $repository },
+                { title: "ref", value: $ref },
+                { title: "event name", value: $event_name }
+              ]
+            }]
+          }')
+
+        echo "Sending notification..."
+        RESPONSE_FILE=$(mktemp)
+        HTTP_CODE=$(curl --silent --output "${RESPONSE_FILE}" --write-out "%{http_code}" \
+          --fail-with-body \
+          --max-time 30 \
+          -H "Content-Type: application/json" \
+          -d "${PAYLOAD}" \
+          "${WEBHOOK_URL}") || true
+
+        RESPONSE_BODY=$(cat "${RESPONSE_FILE}" 2>/dev/null || echo "")
+        rm -f "${RESPONSE_FILE}"
+
+        if [[ ! "${HTTP_CODE}" =~ ^2[0-9]{2}$ ]]; then
+          echo "::error::Notification failed (HTTP ${HTTP_CODE}). Response: ${RESPONSE_BODY}"
+          echo "Notification failed but will not fail the pipeline"
+          exit 0
+        fi
+
+        echo "Notification sent successfully"
