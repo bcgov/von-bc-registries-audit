@@ -34,10 +34,11 @@ inputs:
     description: The token used to authenticate with the OpenShift server.
     required: true
 
-  # rocket.chat notification parameters
-  rocketchat_webhook:
-    description: The URL to use for posting notifications to rocket.chat.
-    required: true
+  # Teams notification parameters
+  teams_webhook_url:
+    description: The webhook URL used to post notifications to Microsoft Teams.
+    required: false
+    default: ''
 
   continue_on_error:
     description: Continue deployment even if there is an error.
@@ -116,14 +117,10 @@ runs:
         oc -n ${{ inputs.namespace }} rollout restart deployment/${{ inputs.deployment_configuration }}
         oc -n ${{ inputs.namespace }} rollout status deployment/${{ inputs.deployment_configuration }} --watch
 
-    - name: Rocket.Chat Notification
-      uses: RocketChat/Rocket.Chat.GitHub.Action.Notification@1.1.1
+    - name: Teams Notification
+      uses: ./.github/workflows/actions/notify-teams
       if: always()
       with:
-        type:  ${{ job.status }}
-        job_name: '*Deployment to ${{ inputs.environment }}*'
-        mention: 'here'
-        mention_if: 'failure'
-        channel: '#ditp-gha-notifications'
-        url: ${{ inputs.rocketchat_webhook }}
-        commit: true
+        webhook_url: ${{ inputs.teams_webhook_url }}
+        status: ${{ job.status }}
+        title: Deployment to ${{ inputs.environment }}
